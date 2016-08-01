@@ -15,6 +15,7 @@
  */
 package com.android.packageinstaller.permission.model;
 
+import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
@@ -32,6 +33,7 @@ import android.util.Log;
 import android.util.SparseArray;
 
 import com.android.packageinstaller.permission.utils.Utils;
+import com.android.packageinstaller.R;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,6 +45,7 @@ public class PermissionApps {
 
     private final Context mContext;
     private final String mGroupName;
+    private final AppOpsManager mAppOps;
     private final PackageManager mPm;
     private final Callback mCallback;
 
@@ -64,6 +67,7 @@ public class PermissionApps {
     public PermissionApps(Context context, String groupName, Callback callback, PmCache cache) {
         mCache = cache;
         mContext = context;
+        mAppOps = (AppOpsManager)context.getSystemService(Context.APP_OPS_SERVICE);
         mPm = mContext.getPackageManager();
         mGroupName = groupName;
         mCallback = callback;
@@ -136,6 +140,12 @@ public class PermissionApps {
     }
 
     private List<PermissionApp> loadPermissionApps() {
+        /* Unsupported groups */
+        if (Utils.SU_GROUP.equals(mGroupName)) {
+            return loadPermissionAppOps(AppOpsManager.OP_SU);
+        }
+
+        /* Normal groups */
         PackageItemInfo groupInfo = getGroupInfo(mGroupName);
         if (groupInfo == null) {
             return Collections.emptyList();
@@ -204,6 +214,54 @@ public class PermissionApps {
 
         return permApps;
     }
+    
+    private List<PermissionApp> loadPermissionAppOps(int code) {
+        PackageInfo appInfo = null;
+        boolean duplicate = false;
+
+        ArrayList<PermissionApp> permApps = new ArrayList<>();
+        
+        List<AppOpsManager.PackageOps> pkgs 
+            = mAppOps.getPackagesForOps(new int[]{code});
+        
+        if (pkgs != null) {
+            for (int i=0; i<pkgs.size(); i++) {
+                AppOpsManager.PackageOps pkgOps = pkgs.get(i);
+            
+                try {
+                    appInfo = mPm.getPackageInfo(pkgOps.getPackageName(), PackageManager.GET_PERMISSIONS);
+                } catch (NameNotFoundException e) {
+                    continue;
+                }
+                
+                duplicate = false;
+                for (PermissionApp permDup : permApps) {
+                    if (permDup.getPackageName().equals(appInfo.packageName)) {
+                        duplicate = true;
+                        break;
+                    }
+                }
+
+                if (appInfo.requestedPermissions != null && !duplicate) {
+                    AppPermissionGroup group = AppPermissionGroup.create(mContext,
+                            appInfo,
+                            mGroupName);
+
+                    String label = mSkipUi ? appInfo.packageName
+                            : appInfo.applicationInfo.loadLabel(mPm).toString();
+
+                    PermissionApp permApp = new PermissionApp(appInfo.packageName,
+                                group, label, getBadgedIcon(appInfo.applicationInfo),
+                                appInfo.applicationInfo);
+                    permApps.add(permApp);
+                }
+            }
+        }
+        
+        Collections.sort(permApps);
+        
+        return permApps;
+    }
 
     private void createMap(List<PermissionApp> result) {
         mAppLookup = new ArrayMap<>();
@@ -255,6 +313,13 @@ public class PermissionApps {
     }
 
     private void loadGroupInfo() {
+        /* Unsupported groups */
+        if (Utils.SU_GROUP.equals(mGroupName)) {
+            mLabel = mContext.getString(R.string.exception_group_superuser);
+            return;
+        }
+        
+        /* Normal groups */
         PackageItemInfo info;
         try {
             info = mPm.getPermissionGroupInfo(mGroupName, 0);

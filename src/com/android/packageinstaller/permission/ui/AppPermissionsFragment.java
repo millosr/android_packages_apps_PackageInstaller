@@ -214,8 +214,17 @@ public final class AppPermissionsFragment extends SettingsWithHeader
             SwitchPreference preference = new SwitchPreference(context);
             preference.setOnPreferenceChangeListener(this);
             preference.setKey(group.getName());
-            Drawable icon = Utils.loadDrawable(context.getPackageManager(),
-                    group.getIconPkg(), group.getIconResId());
+            
+            Drawable icon = null;
+            /* Unsupported groups */
+            if (Utils.SU_GROUP.equals(group.getName())) {
+                icon = getContext().getDrawable(group.getIconResId());
+            } else {
+                /* Standard Groups */
+                icon = Utils.loadDrawable(context.getPackageManager(),
+                        group.getIconPkg(), group.getIconResId());
+            }
+            
             preference.setIcon(Utils.applyTint(getContext(), icon,
                     android.R.attr.colorControlNormal));
             preference.setTitle(group.getLabel());

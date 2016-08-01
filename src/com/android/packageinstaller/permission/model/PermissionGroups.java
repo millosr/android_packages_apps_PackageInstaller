@@ -150,7 +150,6 @@ public final class PermissionGroups implements LoaderCallbacks<List<PermissionGr
                 groups.add(group);
             }
 
-
             // Make sure we add groups for lone runtime permissions.
             List<PackageInfo> installedPackages = getContext().getPackageManager()
                     .getInstalledPackages(PackageManager.GET_PERMISSIONS);
@@ -198,6 +197,12 @@ public final class PermissionGroups implements LoaderCallbacks<List<PermissionGr
                     groups.add(group);
                 }
             }
+            
+            /* Unsupported groups */
+            groups.add(new PermissionGroup(Utils.SU_GROUP,
+                Utils.OS_PKG,
+                getContext().getString(R.string.exception_group_superuser),
+                getContext().getDrawable(R.drawable.ic_perm_superuser)));
 
             Collections.sort(groups);
             return groups;
