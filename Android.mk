@@ -36,3 +36,12 @@ LOCAL_PRIVILEGED_MODULE := true
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 
 include $(BUILD_PACKAGE)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE       := gapps-config.txt
+LOCAL_MODULE_TAGS  := optional
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH  := $(TARGET_ROOT_OUT)/persist
+LOCAL_SRC_FILES    := gapps/gapps-config.txt
+include $(BUILD_PREBUILT)
+
