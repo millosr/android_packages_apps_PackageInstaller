@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 nAOSProm
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +42,9 @@ public final class Utils {
 
     public static final String OS_PKG = "android";
 
+    /* Unsupported group names */
+    public static final String SU_GROUP = "Superuser";
+
     public static final String[] MODERN_PERMISSION_GROUPS = {
             Manifest.permission_group.CALENDAR,
             Manifest.permission_group.CAMERA,
@@ -50,7 +54,12 @@ public final class Utils {
             Manifest.permission_group.SMS,
             Manifest.permission_group.PHONE,
             Manifest.permission_group.MICROPHONE,
-            Manifest.permission_group.STORAGE
+            Manifest.permission_group.STORAGE,
+            Utils.SU_GROUP
+    };
+    
+    public static final String[] UNSUPPORTED_PERMISSION_GROUPS = {
+            Utils.SU_GROUP
     };
 
     private static final Intent LAUNCHER_INTENT = new Intent(Intent.ACTION_MAIN, null)
@@ -72,6 +81,15 @@ public final class Utils {
     public static boolean isModernPermissionGroup(String name) {
         for (String modernGroup : MODERN_PERMISSION_GROUPS) {
             if (modernGroup.equals(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    public static boolean isUnsupportedPermissionGroup(String name) {
+        for (String group : UNSUPPORTED_PERMISSION_GROUPS) {
+            if (group.equals(name)) {
                 return true;
             }
         }
