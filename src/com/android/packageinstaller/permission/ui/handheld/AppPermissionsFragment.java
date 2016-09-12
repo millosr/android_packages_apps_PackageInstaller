@@ -1,5 +1,6 @@
 /*
 * Copyright (C) 2015 The Android Open Source Project
+* Copyright (C) 2016 nAOSProm
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -236,8 +237,17 @@ public final class AppPermissionsFragment extends SettingsWithHeader
             }
 
             preference.setKey(group.getName());
-            Drawable icon = Utils.loadDrawable(context.getPackageManager(),
-                    group.getIconPkg(), group.getIconResId());
+            
+            Drawable icon = null;
+            /* Unsupported groups */
+            if (Utils.SU_GROUP.equals(group.getName())) {
+                icon = getContext().getDrawable(group.getIconResId());
+            } else {
+                /* Standard Groups */
+                icon = Utils.loadDrawable(context.getPackageManager(),
+                        group.getIconPkg(), group.getIconResId());
+            }
+            
             preference.setIcon(Utils.applyTint(getContext(), icon,
                     android.R.attr.colorControlNormal));
             preference.setTitle(group.getLabel());

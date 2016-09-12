@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 nAOSProm
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +17,14 @@
 
 package com.android.packageinstaller.permission.model;
 
+import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.text.BidiFormatter;
+
+import com.android.packageinstaller.permission.utils.Utils;
+import com.android.packageinstaller.R;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -125,6 +130,9 @@ public final class AppPermissions {
             }
         }
 
+        /* Unsupported groups */
+        loadPermissionGroupsAppOps(Utils.SU_GROUP);
+
         if (mSortGroups) {
             Collections.sort(mGroups);
         }
@@ -132,6 +140,31 @@ public final class AppPermissions {
         mNameToGroupMap.clear();
         for (AppPermissionGroup group : mGroups) {
             mNameToGroupMap.put(group.getName(), group);
+        }
+    }
+
+    private void loadPermissionGroupsAppOps(String permission) {
+        int code = AppOpsManager.OP_NONE;
+
+        if (Utils.SU_GROUP.equals(permission))
+            code = AppOpsManager.OP_SU;
+        else
+            return;
+
+        List<AppOpsManager.PackageOps> pkgs =
+                ((AppOpsManager)mContext.getSystemService(Context.APP_OPS_SERVICE))
+                .getPackagesForOps(new int[]{code});
+
+        if (pkgs != null) {
+            for (int i=0; i<pkgs.size(); i++) {
+                AppOpsManager.PackageOps pkgOps = pkgs.get(i);
+                if (mPackageInfo.packageName.equals(pkgOps.getPackageName())) {
+                    AppPermissionGroup group = AppPermissionGroup.create(mContext,
+                        mPackageInfo, permission);
+                    mGroups.add(group);
+                    break;
+                }
+            }
         }
     }
 

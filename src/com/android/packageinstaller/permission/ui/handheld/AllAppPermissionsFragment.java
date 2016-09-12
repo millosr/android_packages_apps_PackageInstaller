@@ -1,5 +1,6 @@
 /*
 * Copyright (C) 2015 The Android Open Source Project
+* Copyright (C) 2016 nAOSProm
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -18,6 +19,7 @@ package com.android.packageinstaller.permission.ui.handheld;
 
 import android.app.ActionBar;
 import android.app.AlertDialog;
+import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -190,6 +192,9 @@ public final class AllAppPermissionsFragment extends SettingsWithHeader {
                     }
                 }
             }
+
+            /* Unsupported groups */
+            updateUiExceptionGroups(info, prefs);
         } catch (NameNotFoundException e) {
             Log.e(LOG_TAG, "Problem getting package info for " + pkg, e);
         }
@@ -352,6 +357,47 @@ public final class AllAppPermissionsFragment extends SettingsWithHeader {
                     }
                 }
             });
+        }
+    }
+
+    private void updateUiExceptionGroups(PackageInfo packageInfo, ArrayList<Preference> prefs) {
+        /* For now we have only Superuser... */
+        AppPermissionGroup group = AppPermissionGroup.create(getContext(), packageInfo, Utils.SU_GROUP);
+
+        List<AppOpsManager.PackageOps> pkgs = ((AppOpsManager)getContext()
+                .getSystemService(Context.APP_OPS_SERVICE))
+                .getPackagesForOps(new int[]{Integer.parseInt(group.getPermissions().get(0).getAppOp())});
+
+        if (pkgs != null) {
+            for (int i=0; i<pkgs.size(); i++) {
+                AppOpsManager.PackageOps pkgOps = pkgs.get(i);
+                if (packageInfo.packageName.equals(pkgOps.getPackageName())) {
+
+                    //Create Category
+                    PreferenceGroup prefGrp = (PreferenceGroup) findPreference(group.getName());
+                    if (prefGrp == null) {
+                        prefGrp = new PreferenceCategory(getContext());
+                        prefGrp.setKey(group.getName());
+                        prefGrp.setLayoutResource(R.layout.preference_category_material);
+                        prefGrp.setTitle(group.getLabel());
+                        prefs.add(prefGrp);
+                        getPreferenceScreen().addPreference(prefGrp);
+                    }
+
+                    //Create Entry
+                    Preference pref = new Preference(getContext());
+                    pref.setLayoutResource(R.layout.preference_permissions);
+                    Drawable icon = getContext().getDrawable(group.getIconResId());
+                    pref.setIcon(Utils.applyTint(getContext(), icon, android.R.attr.colorControlNormal));
+                    pref.setTitle(group.getDescription());
+
+                    //Add to Category
+                    prefGrp.addPreference(pref);
+
+                    //End
+                    break;
+                }
+            }
         }
     }
 }

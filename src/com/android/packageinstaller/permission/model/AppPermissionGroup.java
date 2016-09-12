@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 nAOSProm
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +33,9 @@ import android.util.ArrayMap;
 import com.android.packageinstaller.R;
 import com.android.packageinstaller.permission.utils.ArrayUtils;
 import com.android.packageinstaller.permission.utils.LocationUtils;
+import com.android.packageinstaller.permission.utils.Utils;
 
+import java.lang.Integer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -63,6 +66,36 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
 
     public static AppPermissionGroup create(Context context, PackageInfo packageInfo,
             String permissionName) {
+        /* Unsupported groups */
+        if (Utils.SU_GROUP.equals(permissionName)) {
+            AppPermissionGroup group = new AppPermissionGroup(context,
+                packageInfo,
+                permissionName,
+                Utils.OS_PKG,
+                context.getString(R.string.exception_group_superuser),
+                context.getString(R.string.exception_group_superuser_desc),
+                permissionName,
+                R.drawable.ic_perm_superuser,
+                Process.myUserHandle());
+
+            final boolean appOpAllowed =
+                context.getSystemService(AppOpsManager.class)
+                    .checkOp(AppOpsManager.OP_SU,
+                        packageInfo.applicationInfo.uid, packageInfo.packageName)
+                    == AppOpsManager.MODE_ALLOWED;
+
+            Permission permission = new Permission(Utils.SU_GROUP,
+                    appOpAllowed,
+                    Integer.toString(AppOpsManager.OP_SU),
+                    appOpAllowed,
+                    0,
+                    0);
+            group.addPermission(permission);
+            
+            return group;
+        }
+        
+        /* Standard Groups */
         PermissionInfo permissionInfo;
         try {
             permissionInfo = context.getPackageManager().getPermissionInfo(permissionName, 0);
@@ -328,6 +361,25 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
     }
 
     public boolean grantRuntimePermissions(boolean fixedByTheUser, String[] filterPermissions) {
+        /* Unsupported groups */
+        if (Utils.SU_GROUP.equals(mName)) {
+            Permission permission = mPermissions.valueAt(0);
+            
+            mAppOps.setMode(Integer.parseInt(permission.getAppOp()), 
+			    mPackageInfo.applicationInfo.uid, 
+			    mPackageInfo.packageName, 
+			    AppOpsManager.MODE_ALLOWED);
+            final boolean appOpAllowed = (mAppOps.checkOp(Integer.parseInt(permission.getAppOp()),
+                        mPackageInfo.applicationInfo.uid, mPackageInfo.packageName) == AppOpsManager.MODE_ALLOWED);
+            permission.setAppOpAllowed(appOpAllowed);
+            permission.setGranted(appOpAllowed);
+
+            return appOpAllowed;
+        }
+
+        /* Standard groups */
+    
+        final boolean isSharedUser = mPackageInfo.sharedUserId != null;
         final int uid = mPackageInfo.applicationInfo.uid;
 
         // We toggle permissions only to apps that support runtime
@@ -435,6 +487,24 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
     }
 
     public boolean revokeRuntimePermissions(boolean fixedByTheUser, String[] filterPermissions) {
+        /* Unsupported groups */
+        if (Utils.SU_GROUP.equals(mName)) {
+            Permission permission = mPermissions.valueAt(0);
+
+            mAppOps.setMode(Integer.parseInt(permission.getAppOp()), 
+			    mPackageInfo.applicationInfo.uid, 
+			    mPackageInfo.packageName, 
+			    AppOpsManager.MODE_IGNORED);            
+            final boolean appOpAllowed = (mAppOps.checkOp(Integer.parseInt(permission.getAppOp()),
+                        mPackageInfo.applicationInfo.uid, mPackageInfo.packageName) == AppOpsManager.MODE_ALLOWED);
+            permission.setAppOpAllowed(appOpAllowed);
+            permission.setGranted(appOpAllowed);
+
+            return !appOpAllowed;
+        }
+
+        /* Standard groups */
+        final boolean isSharedUser = mPackageInfo.sharedUserId != null;
         final int uid = mPackageInfo.applicationInfo.uid;
 
         // We toggle permissions only to apps that support runtime
@@ -531,6 +601,22 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
 
         return true;
     }
+    
+    /*
+    private boolean appopsRuntimePermissions(int code, boolean enable) {
+        List<AppOpsManager.PackageOps> pkgs
+            = mAppOps.getOpsForPackage(mPackageInfo.applicationInfo.uid, mPackageInfo.packageName, new int[]{code});
+
+        if (pkgs != null && pkgs.size() != 0) {
+            AppOpsManager.PackageOps pkgOps = pkgs.get(0);
+            mAppOps.setMode(AppOpsManager.opToSwitch(code), pkgOps.getUid(),
+                            pkgOps.getPackageName(), enable ? AppOpsManager.MODE_ALLOWED : AppOpsManager.MODE_IGNORED);
+            return true;
+        }
+        
+        return false;
+    }
+    */
 
     public void setPolicyFixed() {
         final int permissionCount = mPermissions.size();
